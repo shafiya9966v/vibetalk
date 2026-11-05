@@ -1,0 +1,253 @@
+<!doctype html>
+<!--
+  test_realtime_stt.html — standalone throwaway test, NOT part of the main
+  React app. Put this anywhere outside vibetalk/frontend/src.
+
+  Purpose: validate the hardest new piece of the realtime rebuild — capturing
+  raw 16-bit PCM audio at exactly 16kHz, in exact 1024-byte frames, and
+  streaming it to our backend's /ws/stt relay — before touching the real
+  BridgeMode UI at all.
+
+  HOW TO RUN:
+    1. Make sure the backend is running: uvicorn main:app --reload --port 8000
+    2. In THIS folder, run: python -m http.server 5500
+       (plain file:// won't reliably get microphone permission in some
+       browsers — serving over http://localhost avoids that)
+    3. Open http://localhost:5500/test_realtime_stt.html in Chrome or Edge
+    4. Click "Connect", then hold "Hold to talk", speak, release.
+    5. Watch the log for connected / processing / transcript / error
+       messages coming back from the real backend relay.
+-->
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Realtime STT Relay Test</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 640px;
+            margin: 40px auto;
+            padding: 0 16px;
+        }
+
+        button {
+            font-size: 16px;
+            padding: 10px 18px;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        #micBtn[data-recording="true"] {
+            background: #d9534f;
+            color: white;
+        }
+
+        #log {
+            margin-top: 20px;
+            background: #111;
+            color: #0f0;
+            padding: 12px;
+            height: 320px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            border-radius: 6px;
+        }
+
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Realtime STT Relay — Standalone Test</h2>
+    <p>Not the real app UI. Just validates: mic → raw PCM → /ws/stt → Gnani → transcript.</p>
+
+    <button id="connectBtn">Connect</button>
+    <button id="micBtn" disabled>Click to talk</button>
+    <div class="status" id="status">Not connected</div>
+    <div id="log"></div>
+
+    <script>
+        const WS_URL = "ws://localhost:8000/ws/stt";
+        const TARGET_SAMPLE_RATE = 16000;
+        const FRAME_SAMPLES = 512;   // 512 samples * 2 bytes = 1024 bytes, per the spec
+        const FRAME_BYTES = FRAME_SAMPLES * 2;
+
+        let ws = null;
+        let audioContext = null;
+        let processor = null;
+        let source = null;
+        let stream = null;
+        let sampleBuffer = [];       // accumulates int16 samples until we have a full frame
+        let recording = false;
+
+        const logEl = document.getElementById("log");
+        const statusEl = document.getElementById("status");
+        const connectBtn = document.getElementById("connectBtn");
+        const micBtn = document.getElementById("micBtn");
+
+        function log(msg) {
+            const time = new Date().toLocaleTimeString();
+            logEl.textContent += `[${time}] ${msg}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function setStatus(s) { statusEl.textContent = s; }
+
+        // Downsample a Float32Array from the mic's native rate to 16kHz.
+        // Simple averaging downsampler — good enough for speech, not hi-fi audio.
+        function downsample(buffer, inputRate, outputRate) {
+            if (outputRate === inputRate) return buffer;
+            const ratio = inputRate / outputRate;
+            const newLength = Math.round(buffer.length / ratio);
+            const result = new Float32Array(newLength);
+            let offsetResult = 0, offsetBuffer = 0;
+            while (offsetResult < newLength) {
+                const nextOffsetBuffer = Math.round((offsetResult + 1) * ratio);
+                let accum = 0, count = 0;
+                for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
+                    accum += buffer[i];
+                    count++;
+                }
+                result[offsetResult] = count > 0 ? accum / count : 0;
+                offsetResult++;
+                offsetBuffer = nextOffsetBuffer;
+            }
+            return result;
+        }
+
+        function floatTo16BitPCM(float32Array) {
+            const int16 = new Int16Array(float32Array.length);
+            for (let i = 0; i < float32Array.length; i++) {
+                const s = Math.max(-1, Math.min(1, float32Array[i]));
+                int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+            }
+            return int16;
+        }
+
+        // Accumulate incoming int16 samples and flush exact 1024-byte frames as
+        // soon as we have enough — the API requires EXACT frame sizes, so partial
+        // buffers from the browser's audio callback can't be sent as-is.
+        function pushSamplesAndFlush(int16Samples) {
+            for (let i = 0; i < int16Samples.length; i++) {
+                sampleBuffer.push(int16Samples[i]);
+            }
+            while (sampleBuffer.length >= FRAME_SAMPLES) {
+                const frameSamples = sampleBuffer.splice(0, FRAME_SAMPLES);
+                const frame = new Int16Array(frameSamples);
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(frame.buffer);
+                }
+            }
+        }
+
+        connectBtn.onclick = () => {
+            if (ws) { ws.close(); return; }
+
+            ws = new WebSocket(WS_URL);
+            ws.binaryType = "arraybuffer";
+
+            ws.onopen = () => {
+                setStatus("Connected — sending config...");
+                log("WebSocket open. Sending language_code config.");
+                ws.send(JSON.stringify({ language_code: "indic-auto" }));
+                micBtn.disabled = false;
+                connectBtn.textContent = "Disconnect";
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    log(`[${msg.type}] ${JSON.stringify(msg)}`);
+                    if (msg.type === "connected") setStatus("Connected — ready to talk");
+                    if (msg.type === "transcript") setStatus(`Transcript: ${msg.text}`);
+                } catch (e) {
+                    log(`RAW (non-JSON): ${event.data}`);
+                }
+            };
+
+            ws.onerror = (e) => log(`WebSocket error: ${JSON.stringify(e)}`);
+            ws.onclose = () => {
+                setStatus("Disconnected");
+                log("WebSocket closed.");
+                micBtn.disabled = true;
+                connectBtn.textContent = "Connect";
+                ws = null;
+            };
+        };
+
+        async function startRecording() {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            source = audioContext.createMediaStreamSource(stream);
+
+            // ScriptProcessorNode is deprecated but simplest for a quick validation
+            // test — fine here, not meant for the real production app.
+            processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+            processor.onaudioprocess = (e) => {
+                if (!recording) return;
+                const inputData = e.inputBuffer.getChannelData(0);
+                const downsampled = downsample(inputData, audioContext.sampleRate, TARGET_SAMPLE_RATE);
+                const pcm16 = floatTo16BitPCM(downsampled);
+                pushSamplesAndFlush(pcm16);
+            };
+
+            source.connect(processor);
+            // Connect to a muted gain node rather than destination directly, so we
+            // don't create audio feedback/echo through the speakers while testing.
+            const mute = audioContext.createGain();
+            mute.gain.value = 0;
+            processor.connect(mute);
+            mute.connect(audioContext.destination);
+
+            recording = true;
+            sampleBuffer = [];
+            log(`Recording started (native rate: ${audioContext.sampleRate}Hz, downsampling to ${TARGET_SAMPLE_RATE}Hz)`);
+        }
+
+        function stopRecording() {
+            recording = false;
+            if (processor) processor.disconnect();
+            if (source) source.disconnect();
+            if (stream) stream.getTracks().forEach((t) => t.stop());
+            if (audioContext) audioContext.close();
+
+            // Flush any leftover partial frame padded with silence, then commit.
+            if (sampleBuffer.length > 0) {
+                const padded = new Int16Array(FRAME_SAMPLES);
+                padded.set(sampleBuffer);
+                if (ws && ws.readyState === WebSocket.OPEN) ws.send(padded.buffer);
+                sampleBuffer = [];
+            }
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: "commit" }));
+                log("Sent commit — waiting for final transcript...");
+            }
+        }
+
+        // Click-to-start / click-to-stop toggle, instead of hold-to-talk — easier
+        // to test with than holding a mouse button down.
+        micBtn.textContent = "Click to talk";
+        micBtn.onclick = () => {
+            const isRecording = micBtn.dataset.recording === "true";
+            if (!isRecording) {
+                micBtn.dataset.recording = "true";
+                micBtn.textContent = "● Recording (click to stop)";
+                startRecording().catch((e) => log(`Mic error: ${e.message}`));
+            } else {
+                micBtn.dataset.recording = "false";
+                micBtn.textContent = "Click to talk";
+                stopRecording();
+            }
+        };
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,556 @@
+/* bridge.css — put in vibetalk/frontend/src/bridge.css (replaces old dark version) */
+
+:root {
+  --cream: #f5efe4;
+  --cream-deep: #ece3d3;
+  --ink: #2e2a24;
+  --ink-soft: rgba(46, 42, 36, 0.55);
+  --card: #ffffff;
+  --mint: #a8d9c5;
+  --mint-deep: #5fa387;
+  --coral: #f2b8a0;
+  --coral-deep: #c97456;
+  --line: rgba(46, 42, 36, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.bridge-app {
+  min-height: 100vh;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: "Inter", system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.bridge-header {
+  text-align: center;
+  padding: 24px 16px 10px;
+}
+
+.bridge-title {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  font-size: 26px;
+  margin: 0;
+  color: var(--ink);
+}
+
+.bridge-subtitle {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.bridge-split {
+  flex: 1;
+  display: flex;
+  position: relative;
+  min-height: 0;
+}
+
+.bridge-divider {
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, var(--line) 15%, var(--line) 85%, transparent);
+  flex-shrink: 0;
+}
+
+.bridge-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 18px;
+  min-width: 0;
+}
+
+.panel-top {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.panel-label {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.bridge-panel--a .panel-label {
+  color: var(--mint-deep);
+}
+
+.bridge-panel--b .panel-label {
+  color: var(--coral-deep);
+}
+
+.lang-pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lang-pick-hint {
+  font-size: 11px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.lang-select {
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+/* --- Blob character --- */
+.blob-wrap {
+  margin: 10px 0 6px;
+  display: flex;
+  justify-content: center;
+}
+
+.blob {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.bridge-panel--a .blob {
+  background: radial-gradient(circle at 35% 30%, #c3ecdd, var(--mint));
+}
+
+.bridge-panel--b .blob {
+  background: radial-gradient(circle at 35% 30%, #f8d2c0, var(--coral));
+}
+
+.blob[data-state="recording"] {
+  animation: blob-pulse 1s ease-in-out infinite;
+}
+
+.blob[data-state="sending"] {
+  animation: blob-bob 0.6s ease-in-out infinite;
+}
+
+.blob-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.blob-eyes {
+  display: flex;
+  gap: 14px;
+}
+
+.blob-eye {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.blob-smile {
+  width: 16px;
+  height: 8px;
+  border-bottom: 2.5px solid var(--ink);
+  border-radius: 0 0 10px 10px;
+}
+
+@keyframes blob-pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes blob-bob {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.state-label {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.mic-hint {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 14px;
+  min-height: 14px;
+}
+
+/* "You said" bubble — plain white, subtle border */
+.bubble--own {
+  border: 1px solid var(--line);
+}
+
+/* "Translation" bubble — tinted background to visually separate it */
+.bubble--translation {
+  background: var(--cream-deep);
+  border-left: 3px solid transparent;
+}
+
+.bridge-panel--a .bubble--translation {
+  border-left-color: var(--mint-deep);
+}
+
+.bridge-panel--b .bubble--translation {
+  border-left-color: var(--coral-deep);
+}
+
+
+.messages {
+  width: 100%;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 10px;
+}
+
+.bubble {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 11px 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  box-shadow: 0 2px 10px rgba(46, 42, 36, 0.05);
+}
+
+.bubble--incoming.bridge-panel--a .bubble,
+.bridge-panel--a .bubble--incoming {
+  border: 1px solid rgba(95, 163, 135, 0.3);
+}
+
+.bridge-panel--b .bubble--incoming {
+  border: 1px solid rgba(201, 116, 86, 0.3);
+}
+
+.bubble-meta {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bubble-translation-label {
+  font-weight: 600;
+  color: var(--ink-soft);
+  letter-spacing: 0.01em;
+}
+
+.bubble-lang {
+  opacity: 0.65;
+  font-style: italic;
+}
+
+.bubble-pending {
+  opacity: 0.6;
+  animation: pending-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes pending-blink {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 0.2; }
+}
+
+.bubble-text {
+  margin: 0;
+}
+
+.bubble-note {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+/* Incoming bubbles get a tinted left border to stand out as translations */
+.bridge-panel--a .bubble--incoming {
+  border-left: 3px solid var(--mint-deep);
+}
+
+.bridge-panel--b .bubble--incoming {
+  border-left: 3px solid var(--coral-deep);
+}
+
+.play-btn {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.play-btn:hover {
+  background: var(--cream-deep);
+}
+
+/* --- Mic button --- */
+.mic-zone {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-top: 12px;
+}
+
+.mic-btn {
+  padding: 11px 22px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: #fff;
+  transition: transform 0.12s ease;
+}
+
+.bridge-panel--a .mic-btn {
+  background: var(--mint-deep);
+}
+
+.bridge-panel--b .mic-btn {
+  background: var(--coral-deep);
+}
+
+.mic-btn:active {
+  transform: scale(0.96);
+}
+
+.mic-btn[data-state="recording"] {
+  background: #c0564a;
+}
+
+.mic-btn[data-state="sending"],
+.mic-btn[data-state="disabled"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.error-banner {
+  width: 100%;
+  background: #fbe4df;
+  border: 1px solid #e3b2a6;
+  color: #8a3b2a;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.error-dismiss {
+  background: none;
+  border: none;
+  color: #8a3b2a;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.error-dismiss:hover { opacity: 1; }
+
+@media (max-width: 640px) {
+  .bridge-split {
+    flex-direction: column;
+  }
+
+  .bridge-divider {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--line) 15%, var(--line) 85%, transparent);
+  }
+
+  .blob {
+    width: 100px;
+    height: 100px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .blob[data-state="recording"],
+  .blob[data-state="sending"] {
+    animation: none;
+  }
+}
+
+/* ── Landing screen ────────────────────────────────────────────────────── */
+
+.landing {
+  min-height: 100vh;
+  background: var(--cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.landing-card {
+  background: var(--card);
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  padding: 40px 36px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 4px 24px rgba(46, 42, 36, 0.07);
+}
+
+.landing-title {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 700;
+  font-size: 38px;
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+
+.landing-tagline {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--mint-deep);
+  margin: 0 0 16px;
+}
+
+.landing-desc {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  margin: 0 0 20px;
+}
+
+.landing-mic-note {
+  font-size: 13px;
+  color: var(--ink-soft);
+  background: var(--cream);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 0 0 24px;
+}
+
+.landing-start-btn {
+  display: inline-block;
+  background: var(--mint-deep);
+  color: #fff;
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  font-size: 17px;
+  border: none;
+  border-radius: 999px;
+  padding: 13px 36px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.12s ease;
+  width: 100%;
+}
+
+.landing-start-btn:hover {
+  background: var(--coral-deep);
+}
+
+.landing-start-btn:active {
+  transform: scale(0.97);
+}
+
+.landing-compat {
+  margin: 16px 0 0;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+/* ── New conversation (clear history) button ────────────────────────────── */
+
+.clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 5px 13px;
+  cursor: pointer;
+  margin: 4px 0 6px;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+
+.clear-btn::before {
+  content: "↺";
+  font-size: 13px;
+}
+
+.clear-btn:hover {
+  border-color: var(--coral-deep);
+  color: var(--coral-deep);
+}
+
+/* ── Empty messages placeholder ─────────────────────────────────────────── */
+
+.messages-empty {
+  color: var(--ink-soft);
+  font-size: 13px;
+  text-align: center;
+  margin: auto;
+  padding: 16px 0;
+}
+
+/* ── Reconnecting state on blob ─────────────────────────────────────────── */
+
+.blob[data-state="reconnecting"] {
+  opacity: 0.55;
+  animation: blob-bob 1.4s ease-in-out infinite;
+}
+
+.mic-btn[data-state="reconnecting"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
