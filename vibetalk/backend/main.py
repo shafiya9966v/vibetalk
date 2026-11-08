@@ -12,7 +12,6 @@ opened at server startup and reused across every request — this is what
 actually delivers low first-chunk latency, since the ~1s TLS handshake
 cost is paid once at startup, not on every synthesis call.
 """
-
 import base64
 import os
 import tempfile
